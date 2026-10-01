@@ -28,7 +28,8 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
 |---|---|
 | `cad/veiculo.py` | **parâmetros gerais**: carro rebocador, pneu, furação, limites de reboque, engate |
 | `cad/comum.py` | `Perfil`, `Tubo` (encaixe macho-fêmea), `TuboDobrado` (V + dobra), `ListaCorte`, DXF, `render_3d` |
-| `cad/chassi.py` | chassi + suspensão + rodas; parâmetros no topo do arquivo |
+| `cad/chassi.py` | chassi + suspensão + rodas; parâmetros no topo do arquivo; gera as 2 suspensões no mesmo `chassi.FCStd`/`.step`, cada uma numa pasta com as suas rodas; `SUSPENSAO` = a que abre visível ("toro") |
+| `cad/toro.py` | agregado multilink traseiro da Fiat Toro 4x4 adaptado (dados publicados + pontos ESTIMADOS) |
 | `cad/pneu.py` | `Medida("235/65R17 108H")`, `pneu_at()` detalhado (blocos, garras, letras), `roda()` |
 | `cad/bandeja.py` | PoC painel de chapa dobrada → STEP + DXF planificado |
 | `cad/README.md` | notas técnicas (DXF p/ laser, encaixes, dobras) |
@@ -44,7 +45,13 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
   em X = 500/1000/1450/2000/2550; carroceria 1780 de largura; topo do chassi (assoalho) a 700 do chão.
 - **Cambão**: **viga única** RHS 150x75x5 (de X=1475 até o engate em 3450; total 3700) + 2 esquadros de chapa 8 mm.
   Ângulo de manobra 96° (cambão em A daria 77°).
-- **Suspensão**: independente, braço arrastado RHS 120x75x5 (500 do pivô ao eixo), mola helicoidal Ø140, tambor 12".
+- **Suspensão (em estudo, 2 opções)**:
+  - **"toro"** (padrão): agregado multilink traseiro da **Fiat Toro 4x4** de desmanche (ideia do usuário/Gemini):
+    mesma furação 5x110 do Compass, eixo de picape (carga útil ~1000 kg), mola Ø120 separada do amortecedor,
+    amortecedor 716/433, bitola 1579, disco Ø278. Pontos de articulação/agregado são **ESTIMADOS** → medir peça real.
+    Resultado: largura nos pneus 1814 (> carroceria 1780), topo do amortecedor **157 mm acima do assoalho** (torre na caixa
+    se não inclinar/trocar amortecedor), calço agregado→longarina 106, vão livre 229, ~106 kg de peças compradas.
+  - **"braco"**: independente, braço arrastado RHS 120x75x5 (500 do pivô ao eixo), mola helicoidal Ø140, tambor 12".
   Bitola 1540, eixo em X=950. Vão livre 219, folga braço↔pneu ~64.
 - **Quadros laterais 50x50x3**: "L" traseiro e "U" dianteiro com cantos dobrados (corte em V), K=0,33 (calibrar).
 - Encaixe macho-fêmea em todas as 29 juntas (folga 0,25/lado). 17 tubos, 10 peças diferentes. Estrutura ~171 kg.
@@ -60,7 +67,9 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
 
 1. **Orçamento de peso e posição do eixo** — restrição central: PBT ≤ 1500 kg, carga na bola ≤ ~75 kg
    (X2 tem 800 kg de tara e 140 kg na bola). Carreta precisa de **freio próprio**.
-2. Confirmar com o usuário: medidas do engate, furação 5x110 (cubos de carreta 5x110 são raros).
+2. Confirmar com o usuário: medidas do engate. Medir num agregado de Toro 4x4 real: pontos dos braços,
+   agregado (largura, fixações), topo do amortecedor, peso → corrigir `toro.PONTOS`/`AGREGADO`.
+   Freio: Toro tem disco (diesel) ou tambor Ø295 (algumas versões) — tambor combina melhor com freio de inércia.
 3. Modelar: amortecedores, batentes/curso da suspensão, estepe, roda de apoio do cambão, freio, ganchos.
 4. Carroceria (caixa sobre o chassi, caixas de roda: topo do pneu 737 > assoalho 700).
 5. Validar com fornecedores: R e fator K de dobra (chapa), folga dos rasgos e K da dobra em V (laser tubular).

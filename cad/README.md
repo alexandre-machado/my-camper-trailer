@@ -88,6 +88,19 @@ Módulo `comum.py`: perfis, lista de corte, DXF e preview, reaproveitados pelos 
 
 **Perfis são estimativas para estudo de forma e massa, não dimensionamento estrutural.**
 
+### Suspensão: agregado da Fiat Toro 4x4 (`toro.py`)
+
+O `chassi.FCStd` (e o `chassi.step`) traz as **duas suspensões em pastas separadas**, cada uma com
+as suas rodas (a bitola muda): "Suspensao Toro 4x4" e "Suspensao braco arrastado", com subpastas
+soldado / peças compradas / rodas. Só a opção `SUSPENSAO` abre visível; para alternar, selecionar a pasta
+e apertar espaço. Imagens de detalhe: `chassi_suspensao_toro.png` e `chassi_suspensao_braco.png`.
+
+A opção Toro monta o agregado multilink traseiro da Toro 4x4 sob as longarinas
+(4 coxins + calços de chapa), com mola separada sob a longarina, amortecedor, braço longitudinal
+preso em suporte soldado e cubo/disco 5x110. Dados publicados no cabeçalho de `toro.py`; posições dos
+pontos são estimativas a medir.
+As chapas só da opção braço saem como `dxf/braco_*.dxf`, e o braço aparece na lista de corte marcado.
+
 ### Encaixe macho-fêmea (laser tubular)
 
 Todo tubo que encosta em outro ganha **linguetas** nas paredes laterais (largura = parede,
