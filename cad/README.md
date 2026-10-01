@@ -56,6 +56,20 @@ bate com o volume do sólido 3D (diferença < 0,1%).
 `"C:\Program Files\FreeCAD 1.1\bin\python.exe" -m pip install --target cad\_pylibs ezdxf`
 (depois remover a pasta `numpy` de lá — o FreeCAD já tem a dele).
 
+## Parâmetros gerais: `veiculo.py`
+
+Veículo rebocador (Jeep Compass Trailhawk 2.0 Diesel 2020): largura, pneu, furação da roda,
+limites de reboque (1500 kg com freio, 400 kg sem freio, ~75 kg na bola) e medidas do engate.
+Os scripts importam daqui — trocar o carro é editar um arquivo só.
+
+## Pneu e roda: `pneu.py`
+
+Gera o pneu a partir da medida (`Medida("235/65R17 108H")`: diâmetro, flanco, tala ideal,
+carga e velocidade pelos índices) e a roda de aço com a furação. `pneu_at()` imita o Speedmax
+Pangea AT das fotos em `pneu/`: 3 fileiras de blocos escalonados por lado (defasadas meio passo),
+lamelas em zigue-zague (opcional, lento), garras no ombro alternando longas/curtas e letras em
+relevo no flanco externo (+Y). Rodar sozinho gera `out/pneu_*.step` e imagem sombreada (VTK).
+
 ## Chassi, suspensão e rodas: `chassi.py` (v0 conceitual)
 
 ```

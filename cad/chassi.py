@@ -19,8 +19,10 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import veiculo  # noqa: E402
+from pneu import Medida, pneu_at, roda  # noqa: E402
 from comum import (OUT, ACO, Perfil, tubo, Tubo, TuboDobrado, agrupar_iguais, ListaCorte, novo_dxf, bulge_canto,  # noqa: E402
-                   comprimento_corte, preview_vistas)
+                   comprimento_corte, preview_vistas, render_3d, executado_direto)
 
 # ================================================================ parâmetros
 COMPR_TOTAL = 3700      # traseira até a ponta do engate
@@ -41,16 +43,15 @@ X_FIM_CAMBAO = 1450 + 25   # a viga entra no chassi até a travessa do pivô
 ESQUADRO = (300, 200)      # esquadros de chapa sob a junção viga/travessa dianteira: ao longo da viga, ao longo da travessa
                            # (diagonais de tubo formariam um "mini-A" e tirariam ~16° de manobra)
 
-# veículo rebocador p/ cálculo do ângulo de manobra (tipo Hilux/Ranger)
-LARG_VEICULO = 1855
-BOLA_PARACHOQUE = 200      # distância da bola até o para-choque do veículo
-
-# roda e pneu: 33x12.50R17 em roda 17x8, ET0
-PNEU_D, PNEU_L = 838, 318
-ARO_D, ARO_L = 17 * 25.4, 8 * 25.4
+# veículo rebocador, pneu e furação vêm de veiculo.py (parâmetros gerais do projeto)
+LARG_VEICULO = veiculo.LARGURA
+BOLA_PARACHOQUE = veiculo.BOLA_PARACHOQUE
+PNEU = veiculo.PNEU        # mesmo pneu do carro -> estepe compartilhado
+_m = Medida(PNEU)
+PNEU_D, PNEU_L = _m.diametro, _m.largura
+PCD, N_PINOS, CB = veiculo.PCD, veiculo.N_PINOS, veiculo.CB
 BITOLA = 1540              # centro a centro dos pneus
 X_EIXO = 950               # centro da roda a partir da traseira
-PCD, N_PINOS, CB = 139.7, 6, 106.1
 
 # suspensão
 COMPR_BRACO = 500          # pivô até o centro da roda
@@ -70,7 +71,7 @@ YB = LARG_CARROCERIA / 2 - SECUNDARIO.b / 2        # borda da carroceria
 Z_RODA = PNEU_D / 2
 Y_RODA = BITOLA / 2
 X_PIVO = X_EIXO + COMPR_BRACO
-Y_BRACO = Y_RODA - PNEU_L / 2 - 28 - BRACO.b / 2   # 28 mm de folga até o flanco do pneu
+Y_BRACO = 545.5                                    # centro do braço (por fora da longarina)
 X_ENGATE = COMPR_TOTAL - 250                       # início do acoplamento
 X_BOLA = COMPR_TOTAL - 50                          # centro de giro do acoplamento
 
@@ -188,21 +189,16 @@ def construir(lista):
     lista.add("braço arrastado", BRACO, L, 2, "ver chapas laterais/bucha")
     alt_mola = z_sup - z_inf
 
-    # ---- rodas e pneus
+    # ---- rodas e pneus (pneu AT detalhado gerado uma vez e copiado; sem lamelas p/ ficar rápido)
+    borracha, letras = pneu_at(_m, com_lamelas=False)
+    modelos_roda = [borracha, roda(_m, PCD, N_PINOS, CB)] + ([letras] if letras else [])
     for s in (+1, -1):
-        y0 = s * Y_RODA - s * PNEU_L / 2
-        pneu = Part.makeCylinder(PNEU_D / 2, PNEU_L, V(X_EIXO, y0, Z_RODA), V(0, s, 0))
-        pneu = pneu.makeFillet(70, pneu.Edges)
-        pneu = pneu.cut(Part.makeCylinder(ARO_D / 2, PNEU_L + 2, V(X_EIXO, y0 - s, Z_RODA), V(0, s, 0)))
-        aro = Part.makeCylinder(ARO_D / 2, ARO_L, V(X_EIXO, s * Y_RODA - s * ARO_L / 2, Z_RODA), V(0, s, 0)).cut(
-            Part.makeCylinder(ARO_D / 2 - 6, ARO_L, V(X_EIXO, s * Y_RODA - s * ARO_L / 2, Z_RODA), V(0, s, 0)))
-        disco = Part.makeCylinder(ARO_D / 2 - 6, 10, V(X_EIXO, s * Y_RODA, Z_RODA), V(0, s, 0))
-        furos = [Part.makeCylinder(CB / 2, 12, V(X_EIXO, s * Y_RODA - s, Z_RODA), V(0, s, 0))]
-        for i in range(N_PINOS):
-            a = 2 * math.pi * i / N_PINOS
-            furos.append(Part.makeCylinder(7, 12, V(X_EIXO + PCD / 2 * math.cos(a), s * Y_RODA - s,
-                                                    Z_RODA + PCD / 2 * math.sin(a)), V(0, s, 0)))
-        rodas += [pneu, aro.fuse(disco.cut(furos))]
+        for sh in modelos_roda:
+            sh = sh.copy()
+            if s < 0:  # lado esquerdo: gira p/ as letras e a face da roda ficarem para fora
+                sh.rotate(V(0, 0, 0), V(0, 0, 1), 180)
+            sh.translate(V(X_EIXO, s * Y_RODA, Z_RODA))
+            rodas.append(sh)
 
     return chassi, susp, comprados, rodas, alt_mola, pecas_tubo, juntas, sem_encaixe, tubos
 
@@ -334,7 +330,7 @@ def chapas_dxf():
 
 
 # ================================================================ main
-if __name__ in ("__main__", "chassi"):
+if executado_direto(__name__, __file__):
     import FreeCAD
     import Import
 
@@ -367,11 +363,16 @@ if __name__ in ("__main__", "chassi"):
     pecas = chapas_dxf()
     preview_vistas([("#c0392b", chassi), ("#2471a3", susp + comprados), ("#333333", rodas)],
                    os.path.join(OUT, f"{NOME}.png"), "Chassi + suspensão + rodas (v0)")
+    render_3d([("#b03a2e", c) for c in chassi] + [("#2e6da4", c) for c in susp + comprados]
+              + [("#2b2b2b", r) for r in rodas[0::3]] + [("#9aa5ad", r) for r in rodas[1::3]]
+              + [("#e8e8e8", r) for r in rodas[2::3]],
+              os.path.join(OUT, f"{NOME}_3d.png"), vistas=((28, -125), (18, -35)),
+              titulo=f"Chassi + suspensão + rodas — pneu {PNEU}", tol=3, tamanho=(9, 6))
 
     # ---- conferências
     import Part
     estrutura = Part.makeCompound(chassi + susp + comprados)
-    pneus = Part.makeCompound(rodas[0::2])
+    pneus = Part.makeCompound(rodas[0::3])
     folga = estrutura.distToShape(pneus)[0]
     bb = Part.makeCompound(chassi + susp + comprados + rodas).BoundBox
     massa_aco = sum(s.Volume for s in chassi + susp) * ACO  # estrutura soldada (sem comprados)
@@ -380,11 +381,14 @@ if __name__ in ("__main__", "chassi"):
     print(f"Envelope: {bb.XLength:.0f} x {bb.YLength:.0f} x {bb.ZLength:.0f} mm "
           f"(ref X2: 3700 x 1860)")
     print(f"Topo do chassi (assoalho): {Z_TOPO:.0f} mm do chão | vão livre sob a mola: {min(s.BoundBox.ZMin for s in susp + comprados):.0f} mm")
+    print(f"Pneu: {_m.resumo()}")
     print(f"Folga mínima estrutura <-> pneu: {folga:.1f} mm")
     print(f"Altura livre da mola (estática): {alt_mola:.0f} mm")
     print(f"Massa estrutura soldada (3D): {massa_aco:.0f} kg | só tubos da lista: {massa_tubos:.0f} kg")
     for perfil, (m, barras) in lista.resumo_barras().items():
         print(f"  {perfil}: {m:.1f} m -> {barras} barras de 6 m")
+    print(f"Veículo: {veiculo.NOME} | reboque c/ freio {veiculo.REBOQUE_COM_FREIO} kg, "
+          f"s/ freio {veiculo.REBOQUE_SEM_FREIO} kg, bola {veiculo.CARGA_BOLA} kg")
     print(f"Ângulo de manobra (veículo {LARG_VEICULO} mm, bola a {BOLA_PARACHOQUE} mm do para-choque): "
           f"viga única {angulo_manobra('viga'):.0f}° | cambão em A {angulo_manobra('A'):.0f}°")
     print(f"Encaixes macho-fêmea: {len(juntas) - len(sem_encaixe)} de {len(juntas)} juntas")

@@ -12,6 +12,12 @@ import ezdxf  # noqa: E402
 ACO = 7.85e-6  # kg/mm3
 
 
+def executado_direto(nome, arquivo):
+    """True quando o script foi chamado na linha de comando (o freecadcmd não usa "__main__":
+    ele dá ao script o nome do arquivo, o mesmo nome que ele teria num import)."""
+    return nome == "__main__" or any(os.path.abspath(a) == os.path.abspath(arquivo) for a in sys.argv[1:])
+
+
 # ---------------------------------------------------------------- perfis
 class Perfil:
     """Tubo retangular (RHS/metalon). b = largura (lateral), h = altura, e = parede (mm)."""
@@ -324,6 +330,99 @@ def comprimento_corte(msp):
 
 
 # ---------------------------------------------------------------- preview
+def render_3d(itens, caminho, vistas=((20, -60),), titulo="", tol=1.5, tamanho=(8, 7)):
+    """Imagem sombreada sem GUI, com o VTK que vem no FreeCAD (z-buffer de verdade).
+    itens = [(cor_hex, shape), ...]; vistas = [(elevação, azimute), ...] em graus
+    (azimute medido a partir de +X em direção a +Y; Z para cima)."""
+    import math as m_
+    from matplotlib.colors import to_rgb
+    from vtkmodules.vtkCommonCore import vtkPoints
+    from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData
+    from vtkmodules.vtkFiltersCore import vtkPolyDataNormals
+    from vtkmodules.vtkIOImage import vtkPNGWriter
+    from vtkmodules.vtkRenderingAnnotation import vtkAxesActor  # noqa: F401  (carrega módulos de render)
+    from vtkmodules.vtkRenderingCore import (vtkActor, vtkPolyDataMapper, vtkRenderer, vtkRenderWindow,
+                                             vtkTextActor, vtkWindowToImageFilter)
+    from vtkmodules.vtkRenderingLOD import vtkLODActor  # noqa: F401
+    import vtkmodules.vtkRenderingOpenGL2  # noqa: F401
+    import vtkmodules.vtkRenderingFreeType  # noqa: F401
+
+    atores = []
+    lo, hi = [1e18] * 3, [-1e18] * 3
+    for cor, sh in itens:
+        pts, tris = sh.tessellate(tol)
+        if not tris:
+            continue
+        vp, cells = vtkPoints(), vtkCellArray()
+        for p in pts:
+            vp.InsertNextPoint(p.x, p.y, p.z)
+            lo = [min(a, b) for a, b in zip(lo, (p.x, p.y, p.z))]
+            hi = [max(a, b) for a, b in zip(hi, (p.x, p.y, p.z))]
+        for t in tris:
+            cells.InsertNextCell(3, t)
+        pd = vtkPolyData()
+        pd.SetPoints(vp)
+        pd.SetPolys(cells)
+        nrm = vtkPolyDataNormals()
+        nrm.SetInputData(pd)
+        nrm.SetFeatureAngle(35)
+        nrm.SplittingOn()
+        nrm.ConsistencyOn()
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(nrm.GetOutputPort())
+        ator = vtkActor()
+        ator.SetMapper(mapper)
+        pr = ator.GetProperty()
+        pr.SetColor(*to_rgb(cor))
+        pr.SetSpecular(0.25)
+        pr.SetSpecularPower(25)
+        pr.SetAmbient(0.15)
+        atores.append(ator)
+
+    w, h = int(tamanho[0] * 110), int(tamanho[1] * 110)
+    n = len(vistas)
+    janela = vtkRenderWindow()
+    janela.SetOffScreenRendering(1)
+    janela.SetSize(w * n, h + 30)
+    centro = [(a + b) / 2 for a, b in zip(lo, hi)]
+    diag = m_.dist(lo, hi)
+    for k, (el, az) in enumerate(vistas):
+        ren = vtkRenderer()
+        ren.SetViewport(k / n, 0, (k + 1) / n, h / (h + 30))
+        ren.SetBackground(1, 1, 1)
+        for a in atores:
+            ren.AddActor(a)
+        cam = ren.GetActiveCamera()
+        e, a = m_.radians(el), m_.radians(az)
+        d = (m_.cos(e) * m_.cos(a), m_.cos(e) * m_.sin(a), m_.sin(e))
+        cam.SetFocalPoint(*centro)
+        cam.SetPosition(*[c + di * diag * 3 for c, di in zip(centro, d)])
+        cam.SetViewUp(0, 0, 1)
+        cam.SetViewAngle(20)
+        ren.ResetCamera()
+        cam.Zoom(1.15)
+        ren.ResetCameraClippingRange()
+        janela.AddRenderer(ren)
+    topo = vtkRenderer()
+    topo.SetViewport(0, h / (h + 30), 1, 1)
+    topo.SetBackground(1, 1, 1)
+    txt = vtkTextActor()
+    txt.SetInput(titulo)
+    txt.GetTextProperty().SetColor(0.1, 0.1, 0.1)
+    txt.GetTextProperty().SetFontSize(15)
+    txt.SetPosition(10, 6)
+    topo.AddActor2D(txt)
+    janela.AddRenderer(topo)
+    janela.Render()
+    img = vtkWindowToImageFilter()
+    img.SetInput(janela)
+    img.Update()
+    png = vtkPNGWriter()
+    png.SetFileName(caminho)
+    png.SetInputConnection(img.GetOutputPort())
+    png.Write()
+
+
 def preview_vistas(grupos, caminho, titulo=""):
     """Desenha arestas dos sólidos em vista superior, lateral e traseira (sem GUI)."""
     import matplotlib
