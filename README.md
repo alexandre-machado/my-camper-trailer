@@ -9,7 +9,9 @@ os arquivos de fabricação para corte a laser (chapa e tubo), a lista de corte 
 
 ## Vídeo
 
-▶️ [Modelo no FreeCAD (vídeo)](midia/FreeCAD.mp4)
+[![Chassi e suspensões girando no FreeCAD](midia/FreeCAD.gif)](midia/FreeCAD.mp4)
+
+Chassi com as duas opções de suspensão no FreeCAD. Clique na imagem para abrir o [vídeo completo](midia/FreeCAD.mp4).
 
 ## Estado atual
 
