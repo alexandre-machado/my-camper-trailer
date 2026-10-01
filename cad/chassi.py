@@ -38,8 +38,9 @@ TRAVESSA = Perfil(50, 100, 3)
 CAMBAO = Perfil(75, 150, 5)      # viga única do cambão (em pé)
 SECUNDARIO = Perfil(50, 50, 3)   # balanços laterais e bordas da carroceria
 
-X_TRAVESSAS = [500, 1000, 1450, 2000, 2550]  # posições (centro) entre longarinas
-X_BALANCOS = [400, 1550, 2000, 2550]        # balanços até a borda da carroceria (fora da caixa de roda)
+X_TRAVESSAS = [500, 1000, 1450, 2000]  # posições (centro) entre longarinas; a da frente é a própria
+                                       # longarina, dobrada 90° (corte em V) até o cambão
+X_BALANCOS = [400, 1550, 2000, 2540]   # balanços até a borda da carroceria (fora da caixa de roda)
 X_FIM_CAMBAO = 1450 + 25   # a viga entra no chassi até a travessa do pivô
 ESQUADRO = (300, 200)      # esquadros de chapa sob a junção viga/travessa dianteira: ao longo da viga, ao longo da travessa
                            # (diagonais de tubo formariam um "mini-A" e tirariam ~16° de manobra)
@@ -73,6 +74,7 @@ ZL = Z_CHASSI + LONGARINA.h / 2                    # centro da longarina
 Z_TOPO = Z_CHASSI + LONGARINA.h                    # topo do chassi = apoio do assoalho
 YB = LARG_CARROCERIA / 2 - SECUNDARIO.b / 2        # borda da carroceria
 Z_RODA = PNEU_D / 2
+X_FRENTE = COMPR_CHASSI - LONGARINA.b / 2           # centro do trecho dianteiro (dobrado) das longarinas
 X_ENGATE = COMPR_TOTAL - 250                       # início do acoplamento
 X_BOLA = COMPR_TOTAL - 50                          # centro de giro do acoplamento
 
@@ -100,14 +102,18 @@ def construir(lista):
 
     traseira = T("travessa traseira / para-choque", TRAVESSA, (TRAVESSA.b / 2, -LARG_CARROCERIA / 2, ZL),
                  (TRAVESSA.b / 2, LARG_CARROCERIA / 2, ZL))
-    longs = {}
-    for s in (+1, -1):
-        longs[s] = T("longarina", LONGARINA, (SECUNDARIO.b, s * YL, ZL), (COMPR_CHASSI, s * YL, ZL))
-        juntas.append((longs[s], 0, traseira))
-
     yi = VAO_LONGARINAS / 2 - LONGARINA.b
     zc = Z_TOPO - CAMBAO.h / 2
     viga = T("cambão (viga única)", CAMBAO, (X_FIM_CAMBAO, 0, zc), (X_ENGATE, 0, zc))
+    # longarina + travessa dianteira numa peça só: dobra 90° na frente (corte em V) e encaixa no cambão.
+    # longs[s] = trecho longitudinal (é ele que recebe travessas e balanços).
+    longs = {}
+    for s in (+1, -1):
+        dobrada = TuboDobrado("longarina (dobrada na frente)", LONGARINA,
+                              [(SECUNDARIO.b, s * YL, ZL), (X_FRENTE, s * YL, ZL), (X_FRENTE, s * CAMBAO.b / 2, ZL)])
+        tubos.append(dobrada)
+        longs[s] = dobrada.segs[0]
+        juntas += [(longs[s], 0, traseira), (dobrada.segs[-1], 1, viga)]
     travessas = {}
     for x in X_TRAVESSAS:
         if x <= X_FIM_CAMBAO:
@@ -152,7 +158,7 @@ def construir(lista):
 
     for sg in (+1, -1):  # esquadros sob a travessa dianteira, soldados na lateral da viga
         ex, ey = ESQUADRO
-        x0 = X_TRAVESSAS[-1] - TRAVESSA.b / 2
+        x0 = X_FRENTE - TRAVESSA.b / 2
         y0 = sg * CAMBAO.b / 2
         tri = Part.makePolygon([V(x0, y0, 0), V(x0 + ex, y0, 0), V(x0, y0 + sg * ey, 0), V(x0, y0, 0)])
         chassi.append(Part.Face(tri).extrude(V(0, 0, CHAPA_E)).translated(V(0, 0, Z_CHASSI - CHAPA_E)))
@@ -207,14 +213,15 @@ def preview_juntas(tubos, caminho, afastar=70, raio=110):
     from FreeCAD import Vector as V
 
     def achar(nome, x=None, y_sinal=None):
-        for t in tubos:
-            if t.nome == nome and (x is None or abs(t.p0.x - x) < 1) and                     (y_sinal is None or (t.p0.y + t.p1.y) * y_sinal > 0):
+        for t in [seg for t in tubos for seg in getattr(t, "segs", [t])]:
+            if t.nome.startswith(nome) and (x is None or abs(t.p0.x - x) < 1) and                     (y_sinal is None or (t.p0.y + t.p1.y) * y_sinal > 0):
                 return t
 
     casos = [
         ("travessa -> longarina", achar("travessa", 1000), 1, achar("longarina", y_sinal=+1)),
         ("meia travessa -> viga do cambão", achar("meia travessa", 2000, +1), 0, achar("cambão (viga única)")),
         ("balanço -> longarina", achar("balanço lateral", 2000, +1), 0, achar("longarina", y_sinal=+1)),
+        ("longarina dobrada -> cambão", achar("longarina", X_FRENTE, +1), 1, achar("cambão (viga única)")),
         ("longarina -> para-choque", achar("longarina", y_sinal=+1), 0, achar("travessa traseira / para-choque")),
     ]
     c30, s30 = math.cos(math.radians(30)), math.sin(math.radians(30))
@@ -247,7 +254,7 @@ def contorno_frente(tipo):
     if tipo == "viga":
         b = CAMBAO.b / 2 + 20
         segs += [((X_FIM_CAMBAO, s * b), (COMPR_TOTAL, s * b)) for s in (+1, -1)]
-        x0 = X_TRAVESSAS[-1] - TRAVESSA.b / 2
+        x0 = X_FRENTE - TRAVESSA.b / 2
         ex, ey = ESQUADRO
         segs += [((x0, s * (CAMBAO.b / 2 + ey)), (x0 + ex, s * CAMBAO.b / 2)) for s in (+1, -1)]
     else:  # "A" — versão anterior, só para comparação

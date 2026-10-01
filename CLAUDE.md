@@ -43,9 +43,10 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
   ALTURA_BOLA 450 e BOLA_PARACHOQUE 200 são chutes — MEDIR.
 - **Pneu**: Speedmax Prime Pangea AT **235/65R17 108H** (o mesmo do Compass → estepe comum) — Ø737, 1000 kg/pneu, roda 17x7.
 - **Chassi**: escada, longarinas RHS 100x50x3 a 1000 de vão externo, 2600 de comprimento; travessas 100x50x3
-  em X = 500/1000/1450/2000/2550; carroceria 1780 de largura; topo do chassi (assoalho) a 700 do chão.
+  em X = 500/1000/1450/2000; **a travessa da frente é a própria longarina dobrada 90° (corte em V)** até o cambão
+  (peça de 3008 mm planificada, 1 por lado, espelhadas); carroceria 1780 de largura; topo do chassi (assoalho) a 700 do chão.
 - **Cambão**: **viga única** RHS 150x75x5 (de X=1475 até o engate em 3450; total 3700) + 2 esquadros de chapa 8 mm.
-  Ângulo de manobra 96° (cambão em A daria 77°).
+  Ângulo de manobra 95° (cambão em A daria 77°).
 - **Suspensão (em estudo, 2 opções)**:
   - **"toro"** (padrão): agregado multilink traseiro da **Fiat Toro 4x4** de desmanche (ideia do usuário/Gemini):
     mesma furação 5x110 do Compass, eixo de picape (carga útil ~1000 kg), mola Ø120 separada do amortecedor,
@@ -60,7 +61,7 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
     **amortecedor inclinado** (relação 0,61) fechado ≤ 328 / aberto ≥ 471; batente de borracha dentro da mola.
     Topo do pneu na compressão 837 → **caixa de roda até ~867 (+167 acima do assoalho)**. Vão livre 230.
 - **Quadros laterais 50x50x3**: "L" traseiro e "U" dianteiro com cantos dobrados (corte em V), K=0,33 (calibrar).
-- Encaixe macho-fêmea em todas as 29 juntas (folga 0,25/lado). 17 tubos, 10 peças diferentes. Estrutura ~171 kg.
+- Encaixe macho-fêmea em todas as 27 juntas (folga 0,25/lado). 15 tubos, 10 peças diferentes.
 
 ## Decisões do usuário
 

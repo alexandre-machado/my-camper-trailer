@@ -123,6 +123,9 @@ no gabarito antes da solda. Linguetas que cairiam perto da ponta aberta do outro
 
 ### Cantos dobrados (corte em V + dobra)
 
+As **longarinas** (100x50x3) dobram 90° na frente e viram a travessa dianteira, chegando no cambão com
+linguetas: uma peça de ~3008 mm por lado (não cabem as duas na mesma barra de 6 m). A parede dobrada é a de
+100 mm de altura, em 3 mm — dobra à mão com alavanca ou no dispositivo do fornecedor.
 Os quadros laterais em 50x50 são peças únicas dobradas (`TuboDobrado`): "L" traseiro
 (borda + balanço, 1 dobra) e "U" dianteiro (balanço + borda + balanço, 2 dobras).
 O laser corta um V de 90° nas paredes de cima, de baixo e na interna; a parede externa fica
