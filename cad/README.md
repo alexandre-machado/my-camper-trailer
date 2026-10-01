@@ -86,6 +86,16 @@ no gabarito antes da solda. Linguetas que cairiam perto da ponta aberta do outro
 - `out/chassi_encaixes.png`: vista explodida de algumas juntas para conferência.
 - Peças espelhadas (longarina direita/esquerda) têm códigos diferentes.
 
+### Cantos dobrados (corte em V + dobra)
+
+Os quadros laterais em 50x50 são peças únicas dobradas (`TuboDobrado`): "L" traseiro
+(borda + balanço, 1 dobra) e "U" dianteiro (balanço + borda + balanço, 2 dobras).
+O laser corta um V de 90° nas paredes de cima, de baixo e na interna; a parede externa fica
+inteira, é dobrada e o V fecha numa costura soldada. O STEP é o tubo reto planificado com os V.
+Comprimento planificado = soma dos trechos de centro + 2×(b/2 − e) + BA por dobra,
+com BA = π/2·K·e e K = 0,33 (`TuboDobrado.K`) — **calibrar dobrando uma peça de teste**.
+Só cantos de 90° entre tubos do mesmo perfil, todas as dobras para o mesmo lado.
+
 Confirmar com o fornecedor: folga do rasgo, se querem as linguetas com chanfro de entrada,
 e o raio de canto real do tubo (o modelo usa canto vivo e mantém os rasgos afastados ~2×parede dos cantos).
 

@@ -73,6 +73,7 @@ class Tubo:
         self.loc = Part.makeBox(self.L, b, h, V(0, -b / 2, -h / 2)).cut(
             Part.makeBox(self.L + 2, b - 2 * e, h - 2 * e, V(-1, -b / 2 + e, -h / 2 + e)))
         self.machos, self.femeas = 0, 0
+        self.nota = ""
 
     @property
     def shape(self):
@@ -119,6 +120,106 @@ class Tubo:
         self.machos += len(linguetas)
         outro.femeas += len(rasgos)
         return len(linguetas)
+
+
+class TuboDobrado:
+    """Tubo com cantos de 90° feitos por corte em V + dobra (notch and bend).
+
+    `pontos` = linha de centro (vértices nos cantos, todas as curvas para o mesmo lado).
+    Cada trecho é um `Tubo` (para receber/fazer encaixes macho-fêmea). A peça para o laser
+    (`loc`) é o tubo reto planificado: o V corta as paredes de cima, de baixo e a interna,
+    e a parede externa fica inteira e é dobrada.
+    """
+
+    K = 0.33  # posição da linha neutra na parede dobrada -> CALIBRAR com peça de teste
+
+    def __init__(self, nome, perfil, pontos):
+        self.nome, self.perfil = nome, perfil
+        self.segs = [Tubo(f"{nome} [{i}]", perfil, pontos[i], pontos[i + 1]) for i in range(len(pontos) - 1)]
+        giros = set()
+        for s1, s2 in zip(self.segs, self.segs[1:]):
+            d1, d2 = (s1.p1 - s1.p0).normalize(), (s2.p1 - s2.p0).normalize()
+            assert abs(d1.dot(d2)) < 1e-6, "TuboDobrado: só cantos de 90°"
+            giros.add(1 if d1.cross(d2).z > 0 else -1)
+        assert len(giros) == 1, "TuboDobrado: todas as dobras para o mesmo lado"
+        self.t = giros.pop()                      # +1 = vira à esquerda (lado interno = +y local)
+        self.d = perfil.b / 2 - perfil.e          # linha de centro -> face interna da parede externa
+        self.BA = math.pi / 2 * self.K * perfil.e  # comprimento desenvolvido da parede dobrada
+        self.n_dobras = len(self.segs) - 1
+        self.nota = f"{self.n_dobras} dobra(s) em V a 90°"
+
+    @property
+    def machos(self):
+        return sum(s.machos for s in self.segs)
+
+    @property
+    def femeas(self):
+        return sum(s.femeas for s in self.segs)
+
+    def _origens(self):
+        o, res = 0.0, []
+        for s in self.segs:
+            res.append(o)
+            o += s.L + 2 * self.d + self.BA
+        return res
+
+    @property
+    def L(self):
+        return self._origens()[-1] + self.segs[-1].L
+
+    def _feicoes(self, seg):
+        """Linguetas (a somar) e rasgos (a subtrair) do trecho, no referencial dele."""
+        lisa = Tubo("_", self.perfil, (0, 0, 0), (seg.L, 0, 0)).loc
+        return seg.loc.cut(lisa), lisa.cut(seg.loc)
+
+    def _prisma(self, pts):
+        import Part
+        from FreeCAD import Vector as V
+        h = self.perfil.h / 2 + 1
+        poly = Part.makePolygon([V(x, y, -h) for x, y in pts] + [V(pts[0][0], pts[0][1], -h)])
+        return Part.Face(poly).extrude(V(0, 0, 2 * h))
+
+    @property
+    def loc(self):
+        """Tubo reto planificado com os V, linguetas e rasgos (o que vai para o laser tubular)."""
+        p, t, B = self.perfil, self.t, self.perfil.b
+        s = Tubo("_", p, (0, 0, 0), (self.L, 0, 0)).loc
+        for o, seg in zip(self._origens(), self.segs):
+            mais, menos = self._feicoes(seg)
+            s = s.fuse(mais.translated(_v(o, 0, 0))).cut(menos.translated(_v(o, 0, 0)))
+        ya, yi = -t * (B / 2 - p.e), t * (B / 2 + 1)
+        w = abs(yi - ya)  # V de 90°: abertura de 45° para cada lado
+        for o, seg in zip(self._origens()[:-1], self.segs[:-1]):
+            xc = o + seg.L + self.d + self.BA / 2
+            s = s.cut(self._prisma([(xc - self.BA / 2, ya), (xc + self.BA / 2, ya),
+                                    (xc + self.BA / 2 + w, yi), (xc - self.BA / 2 - w, yi)]))
+        return s.removeSplitter()
+
+    @property
+    def shape(self):
+        """Peça dobrada na posição do chassi (trechos em meia-esquadria no canto)."""
+        import Part
+        p, t, B, n = self.perfil, self.t, self.perfil.b, len(self.segs)
+        partes = []
+        for i, seg in enumerate(self.segs):
+            xa = -B / 2 if i > 0 else 0
+            xb = seg.L + B / 2 if i < n - 1 else seg.L
+            s = Tubo("_", p, (xa, 0, 0), (xb, 0, 0)).loc.translated(_v(xa, 0, 0))
+            mais, menos = self._feicoes(seg)
+            s = s.fuse(mais).cut(menos)
+            if i > 0:
+                s = s.common(self._prisma([(-t * B, -B), (1e4, -B), (1e4, B), (t * B, B)]))
+            if i < n - 1:
+                L = seg.L
+                s = s.common(self._prisma([(-1e4, -B), (L + t * B, -B), (L - t * B, B), (-1e4, B)]))
+            s.Placement = seg.pl
+            partes.append(s)
+        return Part.makeCompound(partes)
+
+
+def _v(x, y, z):
+    from FreeCAD import Vector
+    return Vector(x, y, z)
 
 
 def agrupar_iguais(tubos):

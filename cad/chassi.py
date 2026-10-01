@@ -19,7 +19,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from comum import (OUT, ACO, Perfil, tubo, Tubo, agrupar_iguais, ListaCorte, novo_dxf, bulge_canto,  # noqa: E402
+from comum import (OUT, ACO, Perfil, tubo, Tubo, TuboDobrado, agrupar_iguais, ListaCorte, novo_dxf, bulge_canto,  # noqa: E402
                    comprimento_corte, preview_vistas)
 
 # ================================================================ parâmetros
@@ -117,20 +117,23 @@ def construir(lista):
                 juntas += [(t, 0, viga), (t, 1, longs[s])]
     juntas.append((viga, 0, travessas[max(x for x in travessas)]))
 
-    # balanços (da longarina até a borda da carroceria) e bordas laterais encaixadas entre eles;
-    # topo nivelado com as longarinas. Sem borda sobre a caixa de roda.
+    # quadros laterais em 50x50 com cantos dobrados (corte em V + dobra), topo nivelado com as longarinas:
+    #   traseiro "L" = borda + balanço; dianteiro "U" = balanço + borda + balanço.
+    # Balanços intermediários encaixam na borda do "U". Sem borda sobre a caixa de roda.
     zs = Z_TOPO - SECUNDARIO.h / 2
-    meio = SECUNDARIO.b / 2
+    yl, yb = VAO_LONGARINAS / 2, LARG_CARROCERIA / 2 - SECUNDARIO.b
+    x_tras, x_fr0, x_fr1 = X_BALANCOS[0], X_BALANCOS[1], X_BALANCOS[-1]
     for s in (+1, -1):
-        bal = {}
-        for x in X_BALANCOS:
-            bal[x] = T("balanço lateral", SECUNDARIO, (x, s * VAO_LONGARINAS / 2, zs), (x, s * LARG_CARROCERIA / 2, zs))
-            juntas.append((bal[x], 0, longs[s]))
-        t = T("borda lateral", SECUNDARIO, (TRAVESSA.b, s * YB, zs), (X_BALANCOS[0] - meio, s * YB, zs))
-        juntas += [(t, 0, traseira), (t, 1, bal[X_BALANCOS[0]])]
-        for xa, xb in zip(X_BALANCOS[1:], X_BALANCOS[2:]):
-            t = T("borda lateral", SECUNDARIO, (xa + meio, s * YB, zs), (xb - meio, s * YB, zs))
-            juntas += [(t, 0, bal[xa]), (t, 1, bal[xb])]
+        quadro_l = TuboDobrado("quadro traseiro (L)", SECUNDARIO,
+                               [(TRAVESSA.b, s * YB, zs), (x_tras, s * YB, zs), (x_tras, s * yl, zs)])
+        quadro_u = TuboDobrado("quadro dianteiro (U)", SECUNDARIO,
+                               [(x_fr0, s * yl, zs), (x_fr0, s * YB, zs), (x_fr1, s * YB, zs), (x_fr1, s * yl, zs)])
+        tubos += [quadro_l, quadro_u]
+        juntas += [(quadro_l.segs[0], 0, traseira), (quadro_l.segs[-1], 1, longs[s]),
+                   (quadro_u.segs[0], 0, longs[s]), (quadro_u.segs[-1], 1, longs[s])]
+        for x in X_BALANCOS[2:-1]:
+            t = T("balanço lateral", SECUNDARIO, (x, s * yl, zs), (x, s * yb, zs))
+            juntas += [(t, 0, longs[s]), (t, 1, quadro_u.segs[1])]
 
     sem_encaixe = [(a.nome, b.nome) for a, ponta, b in juntas if not a.encaixar(ponta, b)]
 
@@ -140,7 +143,8 @@ def construir(lista):
         cod = f"T{n:02d}"
         t = g[0]
         lista.add(f"{cod} {t.nome}", t.perfil, t.L, len(g),
-                  f"laser tubular {cod}.step, {t.machos} linguetas, {t.femeas} rasgos")
+                  f"laser tubular {cod}.step, {t.machos} linguetas, {t.femeas} rasgos"
+                  + (f", {t.nota}" if t.nota else ""))
         pecas_tubo.append((cod, t, len(g)))
     chassi += [t.shape for t in tubos]
 
