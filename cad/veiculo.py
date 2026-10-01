@@ -14,6 +14,7 @@ ENTRE_EIXOS = 2636
 # pneu/roda: mesmo pneu na carreta = estepe compartilhado (a furação também precisa bater)
 PNEU = "235/65R17 108H"    # Speedmax Prime Pangea AT, o que o usuário usa (de fábrica: 225/60R17)
 PCD, N_PINOS, CB = 110.0, 5, 65.1   # 5x110, furo central 65,1 — CONFIRMAR
+ET = 40                    # offset da roda 17x7 (face de apoio p/ fora do centro do aro) — CONFIRMAR na roda
 
 # limites de reboque (ficha técnica)
 REBOQUE_COM_FREIO = 1500   # kg, peso bruto máximo da carreta com freio próprio

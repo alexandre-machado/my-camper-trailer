@@ -29,6 +29,7 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
 | `cad/veiculo.py` | **parâmetros gerais**: carro rebocador, pneu, furação, limites de reboque, engate |
 | `cad/comum.py` | `Perfil`, `Tubo` (encaixe macho-fêmea), `TuboDobrado` (V + dobra), `ListaCorte`, DXF, `render_3d` |
 | `cad/chassi.py` | chassi + suspensão + rodas; parâmetros no topo do arquivo; gera as 2 suspensões no mesmo `chassi.FCStd`/`.step`, cada uma numa pasta com as suas rodas; `SUSPENSAO` = a que abre visível ("toro") |
+| `cad/braco.py` | suspensão de braço arrastado: cargas, mola, amortecedor, cinemática do curso (`analise`, `diagrama`), geometria 3D |
 | `cad/toro.py` | agregado multilink traseiro da Fiat Toro 4x4 adaptado (dados publicados + pontos ESTIMADOS) |
 | `cad/pneu.py` | `Medida("235/65R17 108H")`, `pneu_at()` detalhado (blocos, garras, letras), `roda()` |
 | `cad/bandeja.py` | PoC painel de chapa dobrada → STEP + DXF planificado |
@@ -51,8 +52,13 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
     amortecedor 716/433, bitola 1579, disco Ø278. Pontos de articulação/agregado são **ESTIMADOS** → medir peça real.
     Resultado: largura nos pneus 1814 (> carroceria 1780), topo do amortecedor **157 mm acima do assoalho** (torre na caixa
     se não inclinar/trocar amortecedor), calço agregado→longarina 106, vão livre 229, ~106 kg de peças compradas.
-  - **"braco"**: independente, braço arrastado RHS 120x75x5 (500 do pivô ao eixo), mola helicoidal Ø140, tambor 12".
-  Bitola 1540, eixo em X=950. Vão livre 219, folga braço↔pneu ~64.
+  - **"braco"** (`braco.py`, em aprofundamento): braço arrastado RHS 120x75x5, 500 do pivô ao eixo, pivô a Z 480 com
+    bucha Ø60 e orelhas com furo oblongo (ajuste de convergência). Ponta: manga de tubo + flange p/ **cubo de carro
+    5x110 (Toro/Compass)** + disco Ø278. Roda ET 40 (CONFIRMAR). Bitola 1540, eixo em X=950.
+    Pré-dimensionamento (PBT 1500, bola 75, tara estimada 900, 50 kg não suspensos/roda, alvo 1,5 Hz):
+    curso +100/-110 na roda; **mola ~73 N/mm**, livre ~366, montada 266, bloco ≤ 165, Ø140;
+    **amortecedor inclinado** (relação 0,61) fechado ≤ 328 / aberto ≥ 471; batente de borracha dentro da mola.
+    Topo do pneu na compressão 837 → **caixa de roda até ~867 (+167 acima do assoalho)**. Vão livre 230.
 - **Quadros laterais 50x50x3**: "L" traseiro e "U" dianteiro com cantos dobrados (corte em V), K=0,33 (calibrar).
 - Encaixe macho-fêmea em todas as 29 juntas (folga 0,25/lado). 17 tubos, 10 peças diferentes. Estrutura ~171 kg.
 

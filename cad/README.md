@@ -101,6 +101,14 @@ preso em suporte soldado e cubo/disco 5x110. Dados publicados no cabeçalho de `
 pontos são estimativas a medir.
 As chapas só da opção braço saem como `dxf/braco_*.dxf`, e o braço aparece na lista de corte marcado.
 
+### Suspensão de braço arrastado (`braco.py`)
+
+Parâmetros de carga, curso e geometria no topo do arquivo. `analise()` calcula relação de movimento,
+rigidez da mola para a frequência alvo, comprimentos da mola e do amortecedor nas três posições
+(extensão / estática / compressão) e a altura mínima da caixa de roda; `diagrama()` desenha a vista
+lateral do curso (`out/chassi_braco_curso.png`). O resumo sai no terminal ao rodar `chassi.py`.
+Pré-dimensionamento para escolher peças e espaço, não cálculo estrutural.
+
 ### Encaixe macho-fêmea (laser tubular)
 
 Todo tubo que encosta em outro ganha **linguetas** nas paredes laterais (largura = parede,

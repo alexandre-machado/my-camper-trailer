@@ -63,7 +63,7 @@ def _bucha(p, eixo, r=22, L=50):
     return Part.makeCylinder(r, L, p - e * (L / 2), e)
 
 
-def suspensao(x_eixo, y_roda, z_roda, z_chassi, y_long, longarina_b):
+def suspensao(x_eixo, y_roda, z_roda, z_chassi, y_long, longarina_b, et=0.0):
     """Monta os dois lados. Retorna (adaptadores_soldados, comprados, info).
 
     y_long = centro da longarina, z_chassi = face inferior dela (onde o agregado e as molas apoiam)."""
@@ -110,7 +110,7 @@ def suspensao(x_eixo, y_roda, z_roda, z_chassi, y_long, longarina_b):
         hub_y = s * y_roda
         manga = Part.makeBox(90, 60, 300, V(x_eixo - 45, s * (y_roda - 125) - 30, z_roda - 140))
         comprado.append(manga)
-        comprado.append(Part.makeCylinder(65, 125 - 30, V(x_eixo, s * (y_roda - 95), z_roda), V(0, s, 0)))  # cubo
+        comprado.append(Part.makeCylinder(65, 95 + et, V(x_eixo, s * (y_roda - 95), z_roda), V(0, s, 0)))  # cubo até a face da roda (ET)
         comprado.append(Part.makeCylinder(DISCO_D / 2, DISCO_E, V(x_eixo, s * (y_roda - 45), z_roda), V(0, s, 0)).cut(
             Part.makeCylinder(70, DISCO_E, V(x_eixo, s * (y_roda - 45), z_roda), V(0, s, 0))))
         comprado.append(Part.makeBox(110, 70, 60, V(x_eixo + 40, s * (y_roda - 39) - 35, z_roda + DISCO_D / 2 - 75)))

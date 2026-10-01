@@ -21,6 +21,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import veiculo  # noqa: E402
 import toro  # noqa: E402
+import braco  # noqa: E402
 from pneu import Medida, pneu_at, roda  # noqa: E402
 from comum import (OUT, ACO, Perfil, tubo, Tubo, TuboDobrado, agrupar_iguais, ListaCorte, novo_dxf, bulge_canto,  # noqa: E402
                    comprimento_corte, preview_vistas, render_3d, executado_direto)
@@ -36,7 +37,6 @@ LONGARINA = Perfil(50, 100, 3)   # RHS 100x50x3 em pé
 TRAVESSA = Perfil(50, 100, 3)
 CAMBAO = Perfil(75, 150, 5)      # viga única do cambão (em pé)
 SECUNDARIO = Perfil(50, 50, 3)   # balanços laterais e bordas da carroceria
-BRACO = Perfil(75, 120, 5)       # braço arrastado
 
 X_TRAVESSAS = [500, 1000, 1450, 2000, 2550]  # posições (centro) entre longarinas
 X_BALANCOS = [400, 1550, 2000, 2550]        # balanços até a borda da carroceria (fora da caixa de roda)
@@ -56,16 +56,12 @@ X_EIXO = 950               # centro da roda a partir da traseira
 # suspensões em estudo -> bitola (centro a centro dos pneus) de cada uma. As duas vão para o mesmo
 # FCStd/STEP, cada uma num grupo próprio (com as suas rodas); SUSPENSAO é a que abre visível.
 #   "toro"  = agregado multilink da Fiat Toro 4x4 (toro.py)
-#   "braco" = braço arrastado próprio
+#   "braco" = braço arrastado próprio (braco.py)
 SUSPENSOES = {"toro": toro.BITOLA, "braco": 1540}
 SUSPENSAO = "toro"
 BITOLA = SUSPENSOES[SUSPENSAO]
 
-# braço arrastado (opção "braco")
-COMPR_BRACO = 500          # pivô até o centro da roda
-Z_PIVO = 480
-MOLA_D, X_MOLA = 140, 1000
-Y_MOLA = 430               # centro da mola (por dentro do braço)
+ET_RODA = veiculo.ET       # face de apoio da roda em relação ao centro do pneu
 CHAPA_E = 8                # espessura das chapas cortadas a laser (suportes)
 
 NOME = "chassi"
@@ -77,8 +73,6 @@ ZL = Z_CHASSI + LONGARINA.h / 2                    # centro da longarina
 Z_TOPO = Z_CHASSI + LONGARINA.h                    # topo do chassi = apoio do assoalho
 YB = LARG_CARROCERIA / 2 - SECUNDARIO.b / 2        # borda da carroceria
 Z_RODA = PNEU_D / 2
-X_PIVO = X_EIXO + COMPR_BRACO
-Y_BRACO = 545.5                                    # centro do braço (por fora da longarina)
 X_ENGATE = COMPR_TOTAL - 250                       # início do acoplamento
 X_BOLA = COMPR_TOTAL - 50                          # centro de giro do acoplamento
 
@@ -173,7 +167,7 @@ def construir(lista):
 def modelos_roda():
     """Pneu AT detalhado + roda, gerados uma vez (sem lamelas, p/ ficar rápido) e copiados em cada opção."""
     borracha, letras = pneu_at(_m, com_lamelas=False)
-    return [borracha, roda(_m, PCD, N_PINOS, CB)] + ([letras] if letras else [])
+    return [borracha, roda(_m, PCD, N_PINOS, CB, et=ET_RODA)] + ([letras] if letras else [])
 
 
 def montar_suspensao(tipo, modelos):
@@ -187,36 +181,11 @@ def montar_suspensao(tipo, modelos):
     susp, comprados, rodas = [], [], []
     info, L = {}, None
     if tipo == "toro":
-        susp, comprados, info = toro.suspensao(X_EIXO, y_roda, Z_RODA, Z_CHASSI, YL, LONGARINA.b)
+        susp, comprados, info = toro.suspensao(X_EIXO, y_roda, Z_RODA, Z_CHASSI, YL, LONGARINA.b, et=ET_RODA)
         alt_mola = info["mola_altura"]
     else:
-        # ---- braço arrastado próprio + mola + suportes
-        xb0 = X_EIXO - 60                          # braço passa um pouco atrás do eixo
-        for s in (+1, -1):
-            t, L = tubo(BRACO, (xb0, s * Y_BRACO, Z_RODA - 6), (X_PIVO, s * Y_BRACO, Z_PIVO))
-            susp.append(t)
-            # bucha do pivô
-            comprados.append(Part.makeCylinder(30, BRACO.b + 20, V(X_PIVO, s * Y_BRACO - (BRACO.b + 20) / 2, Z_PIVO), V(0, 1, 0)))
-            # suportes do pivô (2 chapas penduradas na longarina/travessa)
-            for dy in (-1, 1):
-                yp = s * Y_BRACO + dy * (BRACO.b / 2 + 12 + CHAPA_E / 2)
-                susp.append(Part.makeBox(120, CHAPA_E, Z_CHASSI - (Z_PIVO - 60),
-                                         V(X_PIVO - 60, yp - CHAPA_E / 2, Z_PIVO - 60)))
-            # ponta de eixo + cubo + tambor
-            y_face = s * (Y_BRACO + BRACO.b / 2)
-            y_cubo = s * y_roda
-            comprados.append(Part.makeCylinder(30, abs(y_cubo - y_face), V(X_EIXO, y_face, Z_RODA), V(0, s, 0)))
-            comprados.append(Part.makeCylinder(150, 70, V(X_EIXO, s * (y_roda - 80), Z_RODA), V(0, s, 0)))  # tambor 12"
-            # mola: prato inferior no braço, prato superior sob longarina/travessa
-            z_braco_mola = (Z_RODA - 6) + (Z_PIVO - Z_RODA + 6) * (X_MOLA - xb0) / (X_PIVO - xb0) - BRACO.h / 2
-            z_inf, z_sup = z_braco_mola, Z_CHASSI - CHAPA_E
-            susp.append(Part.makeBox(180, abs(s * Y_BRACO - s * Y_MOLA) + 90 + BRACO.b / 2, CHAPA_E,
-                                     V(X_MOLA - 90, min(s * (Y_MOLA - 90), s * (Y_BRACO + BRACO.b / 2)), z_inf - CHAPA_E)))
-            susp.append(Part.makeBox(180, 180, CHAPA_E, V(X_MOLA - 90, s * Y_MOLA - 90, z_sup)))
-            mola = Part.makeCylinder(MOLA_D / 2, z_sup - z_inf, V(X_MOLA, s * Y_MOLA, z_inf)).cut(
-                Part.makeCylinder(MOLA_D / 2 - 15, z_sup - z_inf, V(X_MOLA, s * Y_MOLA, z_inf)))
-            comprados.append(mola)
-        alt_mola = z_sup - z_inf
+        susp, comprados, info, L = braco.suspensao(X_EIXO, y_roda, Z_RODA, Z_CHASSI, YL, LONGARINA.b, et=ET_RODA)
+        alt_mola = info["mola_altura"]
 
     for s in (+1, -1):
         for sh in modelos:
@@ -323,15 +292,17 @@ def chapas_dxf():
 
 
 def chapas_braco(salvar):
-    # suporte do pivô: 120 x altura, base reta (solda na longarina), fundo em arco, furo da bucha
-    alt = Z_CHASSI - (Z_PIVO - 60)
+    # orelha do pivô: 140 x altura, base reta (solda na tampa sob a longarina), fundo em arco,
+    # furo oblongo p/ o parafuso M20 da bucha: ±6 mm na horizontal = ajuste de convergência
+    alt = Z_CHASSI - CHAPA_E - (braco.Z_PIVO - 70)
     doc = novo_dxf()
     msp = doc.modelspace()
-    r = 60
+    r, folga, aj = 70, 10.5, 6
     msp.add_lwpolyline([(0, alt, 0), (0, r, 1.0), (2 * r, r, 0), (2 * r, alt, 0)],
                        format="xyb", close=True, dxfattribs={"layer": "CORTE"})
-    msp.add_circle((r, r), 31, dxfattribs={"layer": "CORTE"})  # furo p/ parafuso M30 / bucha
-    salvar("braco_suporte_pivo", 8, doc, f"SUPORTE PIVO  chapa {CHAPA_E} mm  qtd 8")
+    msp.add_lwpolyline([(r - aj, r - folga, 1.0), (r + aj, r - folga, 0), (r + aj, r + folga, 1.0), (r - aj, r + folga, 0)],
+                       format="xyb", close=True, dxfattribs={"layer": "CORTE"})
+    salvar("braco_orelha_pivo", 4, doc, f"ORELHA PIVO  chapa {CHAPA_E} mm  qtd 4  (oblongo = ajuste de convergencia)")
 
     # prato da mola (superior e inferior): 180x180 com furo de centragem e 4 furos de fixação
     doc = novo_dxf()
@@ -382,6 +353,21 @@ def resumo_suspensao(tipo, chassi, op):
         print(f"  mola Ø{toro.MOLA_D} sob a longarina (Y ±{i['mola_y']:.0f}) | "
               f"calço agregado->longarina {i['calco_agregado']:.0f} mm")
         print(f"  peças compradas (agregado + 2 lados) ~{i['massa_comprados']:.0f} kg (estimado, sem diferencial)")
+    else:
+        a = braco.analise(X_EIXO, Z_RODA, Z_CHASSI, PNEU_D)
+        print(f"  cargas: PBT {braco.PBT} - bola {braco.CARGA_BOLA} -> {a['m_carr']:.0f} kg suspensos/roda "
+              f"(vazio ~{a['m_vazio']:.0f}, tara estimada {braco.TARA})")
+        print(f"  curso na roda: +{braco.CURSO_COMPRESSAO} / -{braco.CURSO_EXTENSAO} | "
+              f"relação mola {a['mr_mola']:.2f}, amortecedor {a['mr_amort']:.2f}")
+        print(f"  MOLA: {a['k_mola']:.0f} N/mm (roda {a['k_roda']:.0f} N/mm -> {braco.FREQ_ALVO} Hz carregada, "
+              f"{a['f_vazio']:.1f} Hz vazia) | livre ~{a['mola_livre']:.0f}, montada {a['est']['L_mola']:.0f}, "
+              f"bloco <= {a['mola_bloco_max']:.0f} | força estática {a['f_mola'] / 1000:.1f} kN, máx {a['f_mola_max'] / 1000:.1f} kN")
+        print(f"  vazia, a carreta fica ~{a['sobe_vazio']:.0f} mm mais alta (mola linear)")
+        print(f"  AMORTECEDOR (olhal-olhal): fechado <= {a['amort_fechado_max']:.0f}, aberto >= {a['amort_aberto_min']:.0f} "
+              f"(curso >= {a['amort_curso_min']:.0f}); montado {a['est']['L_amort']:.0f}")
+        print(f"  batente de borracha dentro da mola: encosta a +{braco.CURSO_COMPRESSAO} | "
+              f"topo do pneu na compressão {a['topo_pneu_comp']:.0f} -> caixa de roda até "
+              f"{a['topo_pneu_comp'] + 30:.0f} (+{a['topo_pneu_comp'] + 30 - Z_TOPO:.0f} acima do assoalho)")
 
 
 if executado_direto(__name__, __file__):
@@ -394,7 +380,7 @@ if executado_direto(__name__, __file__):
     chassi, comprados_chassi, pecas_tubo, juntas, sem_encaixe, tubos = construir(lista)
     modelos = modelos_roda()
     opcoes = {tipo: montar_suspensao(tipo, modelos) for tipo in SUSPENSOES}
-    lista.add("braço arrastado", BRACO, opcoes["braco"]["braco_L"], 2,
+    lista.add("braço arrastado", braco.PERFIL, opcoes["braco"]["braco_L"], 2,
               "SÓ NA OPÇÃO BRAÇO ARRASTADO, ver chapas braco_*")
 
     # um STEP por peça de tubo, no referencial do próprio tubo (eixo X), p/ a máquina de laser tubular
@@ -453,6 +439,7 @@ if executado_direto(__name__, __file__):
               + [("#e8e8e8", r) for r in rodas[2::3]],
               os.path.join(OUT, f"{NOME}_3d.png"), vistas=((28, -125), (18, -35)),
               titulo=f"Chassi + suspensão ({SUSPENSAO}) + rodas — pneu {PNEU}", tol=3, tamanho=(9, 6))
+    braco.diagrama(os.path.join(OUT, f"{NOME}_braco_curso.png"), X_EIXO, Z_RODA, Z_CHASSI, Z_TOPO, PNEU_D, LONGARINA.h)
     caixa = Part.makeBox(1100, 1100, 1000, FreeCAD.Vector(X_EIXO - 500, -100, 0))
 
     def recorte(cor, solidos):
