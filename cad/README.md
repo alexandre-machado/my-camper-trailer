@@ -56,6 +56,39 @@ bate com o volume do sólido 3D (diferença < 0,1%).
 `"C:\Program Files\FreeCAD 1.1\bin\python.exe" -m pip install --target cad\_pylibs ezdxf`
 (depois remover a pasta `numpy` de lá — o FreeCAD já tem a dele).
 
+## Chassi, suspensão e rodas: `chassi.py` (v0 conceitual)
+
+```
+"C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe" cad\chassi.py
+```
+
+Chassi escada (longarinas RHS 100x50x3), cambão de viga única RHS 150x75x5 (entra no
+chassi até a travessa do pivô; sem "A" para não limitar a manobra — o script calcula o
+ângulo máximo carreta x veículo), balanços até a largura da carroceria (1780), suspensão independente por braço arrastado + mola helicoidal,
+pneus 33x12.50R17, furação 6x139,7, bitola 1540. Medidas tiradas por escala do
+desenho do X2. Coordenadas: X da traseira para o engate, Y lateral, Z do chão.
+
+Saídas em `cad/out/`: `chassi.FCStd` (peças nomeadas em grupos), `chassi.step`,
+`chassi.png` (3 vistas), `chassi_lista_corte.csv` (tubos) e `dxf/` (chapas do laser).
+Módulo `comum.py`: perfis, lista de corte, DXF e preview, reaproveitados pelos scripts.
+
+**Perfis são estimativas para estudo de forma e massa, não dimensionamento estrutural.**
+
+### Encaixe macho-fêmea (laser tubular)
+
+Todo tubo que encosta em outro ganha **linguetas** nas paredes laterais (largura = parede,
+altura ≈ 40% do perfil, comprimento = parede do outro tubo + 2 mm), e o tubo que recebe ganha
+**rasgos** com 0,25 mm de folga por lado (`Tubo.FOLGA`). As peças se posicionam sozinhas
+no gabarito antes da solda. Linguetas que cairiam perto da ponta aberta do outro tubo são omitidas.
+
+- `out/laser_tubular/Txx.step`: um STEP por peça diferente, no eixo X (formato que o
+  software de laser tubular importa); códigos e quantidades em `chassi_lista_corte.csv`.
+- `out/chassi_encaixes.png`: vista explodida de algumas juntas para conferência.
+- Peças espelhadas (longarina direita/esquerda) têm códigos diferentes.
+
+Confirmar com o fornecedor: folga do rasgo, se querem as linguetas com chanfro de entrada,
+e o raio de canto real do tubo (o modelo usa canto vivo e mantém os rasgos afastados ~2×parede dos cantos).
+
 ## Próximos passos
 
 1. Pegar R e K reais com o fornecedor de corte/dobra (e material: aço carbono, galvanizado, alumínio 5052?).
