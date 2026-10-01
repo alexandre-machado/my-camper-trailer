@@ -137,6 +137,22 @@ Só cantos de 90° entre tubos do mesmo perfil, todas as dobras para o mesmo lad
 Confirmar com o fornecedor: folga do rasgo, se querem as linguetas com chanfro de entrada,
 e o raio de canto real do tubo (o modelo usa canto vivo e mantém os rasgos afastados ~2×parede dos cantos).
 
+## Visual realista no Blender
+
+O Blender não substitui o FreeCAD (trabalha com malha, não exporta STEP nem DXF exato), mas serve para
+imagens realistas. `chassi.py` exporta `out/chassi_toro.glb` e `out/chassi_braco.glb` (uma opção de
+suspensão por arquivo), com peças nomeadas e materiais (aço galvanizado, aço bruto, borracha, roda).
+
+- Abrir à mão: Blender > File > Import > glTF 2.0.
+- Render automático: `blender_render.py` monta chão, sol e câmera e renderiza com Cycles:
+
+```
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python cad\blender_render.py -- cad\out\chassi_braco.glb cad\out\render_braco.png geral
+```
+
+Vistas: `geral`, `tras`, `suspensao`. Junto com o PNG sai um `.blend` pronto para abrir e girar.
+Cores e acabamentos ficam em `MATERIAIS` (comum.py).
+
 ## Próximos passos
 
 1. Pegar R e K reais com o fornecedor de corte/dobra (e material: aço carbono, galvanizado, alumínio 5052?).

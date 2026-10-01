@@ -17,6 +17,10 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
 "C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe" cad\bandeja.py  # PoC chapa dobrada
 ```
 
+- Blender (só visual, não substitui o FreeCAD): `chassi.py` gera `out/chassi_toro.glb` e `out/chassi_braco.glb`
+  (`exportar_glb` em comum.py, materiais em `MATERIAIS`). Render:
+  `"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python cad\blender_render.py -- cad\out\chassi_braco.glb cad\out\render_braco.png geral`
+  (vistas: `geral`, `tras`, `suspensao`; ~20 s na GPU).
 - `ezdxf` fica em `cad/_pylibs` (instalar: `"...\FreeCAD 1.1\bin\python.exe" -m pip install --target cad\_pylibs ezdxf`
   e apagar a pasta `numpy` de lá).
 - freecadcmd dá ao script `__name__` = nome do arquivo → usar `executado_direto(__name__, __file__)` (comum.py).
@@ -32,6 +36,7 @@ lista de corte (CSV) e imagens. `cad/out/` e `cad/_pylibs/` são ignorados pelo 
 | `cad/braco.py` | suspensão de braço arrastado: cargas, mola, amortecedor, cinemática do curso (`analise`, `diagrama`), geometria 3D |
 | `cad/toro.py` | agregado multilink traseiro da Fiat Toro 4x4 adaptado (dados publicados + pontos ESTIMADOS) |
 | `cad/pneu.py` | `Medida("235/65R17 108H")`, `pneu_at()` detalhado (blocos, garras, letras), `roda()` |
+| `cad/blender_render.py` | render realista no Blender 5.2 (sem interface) a partir de `out/chassi_<opção>.glb`; salva PNG + `.blend` com chão, luz e câmera |
 | `cad/bandeja.py` | PoC painel de chapa dobrada → STEP + DXF planificado |
 | `cad/README.md` | notas técnicas (DXF p/ laser, encaixes, dobras) |
 | `trailer patriot.FCStd` | modelo manual antigo do usuário (tubo RHS 50x30x2.9 + roda) |

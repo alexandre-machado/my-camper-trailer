@@ -445,3 +445,77 @@ def preview_vistas(grupos, caminho, titulo=""):
     fig.suptitle(titulo)
     fig.tight_layout()
     fig.savefig(caminho, dpi=110)
+
+
+# materiais para o Blender (glTF PBR): cor base, metálico, rugosidade
+MATERIAIS = {
+    "aco_galvanizado": ("#b9bec2", 1.0, 0.45),
+    "aco_pintado": ("#1c1c1e", 0.3, 0.45),      # preto, pintura a pó
+    "aco_bruto": ("#5b5f63", 1.0, 0.6),         # peças compradas (cubo, disco, braços de carro)
+    "mola": ("#a01d1d", 0.4, 0.4),
+    "borracha": ("#141414", 0.0, 0.9),
+    "roda": ("#c9ced3", 1.0, 0.3),
+    "letras": ("#f2f2f2", 0.0, 0.8),
+}
+
+
+def exportar_glb(itens, caminho, tol=0.4):
+    """Exporta para glTF binário (.glb), que o Blender abre em File > Import > glTF 2.0.
+    itens = [(nome, material, shape, tol opcional), ...]; material = chave de MATERIAIS.
+    Converte mm -> m e Z para cima -> Y para cima (padrão glTF; o Blender desfaz ao importar).
+    Sem normais: cada face fica com sombreamento plano (bom p/ tubo e chapa)."""
+    import json
+    import struct
+    import numpy as np
+    from matplotlib.colors import to_rgb
+
+    nomes_mat = sorted({it[1] for it in itens})
+    materiais = []
+    for n in nomes_mat:
+        cor, metal, rug = MATERIAIS[n]
+        r, g, b = (c ** 2.2 for c in to_rgb(cor))   # sRGB -> linear
+        materiais.append({"name": n, "pbrMetallicRoughness": {
+            "baseColorFactor": [r, g, b, 1.0], "metallicFactor": metal, "roughnessFactor": rug}})
+
+    blob, views, accessors, meshes, nodes = bytearray(), [], [], [], []
+
+    def bloco(dados, alvo):
+        while len(blob) % 4:
+            blob.append(0)
+        views.append({"buffer": 0, "byteOffset": len(blob), "byteLength": len(dados), "target": alvo})
+        blob.extend(dados)
+        return len(views) - 1
+
+    for it in itens:
+        nome, mat, shape = it[0], it[1], it[2]
+        verts, tris = shape.tessellate(it[3] if len(it) > 3 else tol)
+        if not tris:
+            continue
+        v = np.array([(p.x, p.z, -p.y) for p in verts], dtype=np.float32) / 1000.0
+        i = np.array(tris, dtype=np.uint32)
+        # vértices não compartilhados entre triângulos -> sombreamento plano em qualquer visualizador
+        v = v[i.reshape(-1)]
+        i = np.arange(len(v), dtype=np.uint32)
+        bv = bloco(v.tobytes(), 34962)
+        accessors.append({"bufferView": bv, "componentType": 5126, "count": len(v), "type": "VEC3",
+                          "min": v.min(axis=0).tolist(), "max": v.max(axis=0).tolist()})
+        bi = bloco(i.tobytes(), 34963)
+        accessors.append({"bufferView": bi, "componentType": 5125, "count": len(i), "type": "SCALAR"})
+        meshes.append({"name": nome, "primitives": [{"attributes": {"POSITION": len(accessors) - 2},
+                                                      "indices": len(accessors) - 1,
+                                                      "material": nomes_mat.index(mat)}]})
+        nodes.append({"name": nome, "mesh": len(meshes) - 1})
+
+    while len(blob) % 4:
+        blob.append(0)
+    gltf = {"asset": {"version": "2.0", "generator": "Trailer Camper / FreeCAD"}, "scene": 0,
+            "scenes": [{"nodes": list(range(len(nodes)))}], "nodes": nodes, "meshes": meshes,
+            "materials": materiais, "accessors": accessors, "bufferViews": views,
+            "buffers": [{"byteLength": len(blob)}]}
+    js = json.dumps(gltf, separators=(",", ":")).encode("utf-8")
+    js += b" " * (-len(js) % 4)
+    with open(caminho, "wb") as f:
+        f.write(struct.pack("<4sII", b"glTF", 2, 12 + 8 + len(js) + 8 + len(blob)))
+        f.write(struct.pack("<I4s", len(js), b"JSON") + js)
+        f.write(struct.pack("<I4s", len(blob), b"BIN\0") + bytes(blob))
+    return len(nodes), sum(a["count"] for a in accessors[1::2]) // 3

@@ -24,7 +24,7 @@ import toro  # noqa: E402
 import braco  # noqa: E402
 from pneu import Medida, pneu_at, roda  # noqa: E402
 from comum import (OUT, ACO, Perfil, tubo, Tubo, TuboDobrado, agrupar_iguais, ListaCorte, novo_dxf, bulge_canto,  # noqa: E402
-                   comprimento_corte, preview_vistas, render_3d, executado_direto)
+                   comprimento_corte, preview_vistas, render_3d, exportar_glb, executado_direto)
 
 # ================================================================ parâmetros
 COMPR_TOTAL = 3700      # traseira até a ponta do engate
@@ -457,6 +457,20 @@ if executado_direto(__name__, __file__):
                   os.path.join(OUT, f"{NOME}_suspensao_{tipo}.png"), vistas=((10, -140), (-30, -100)),
                   titulo=f"{NOMES_SUSP[tipo]}, lado direito: laranja = soldado na carreta, azul = peças compradas",
                   tol=1.0, tamanho=(12, 6))
+
+    # ---- Blender: um .glb por opção de suspensão (File > Import > glTF 2.0), peças nomeadas e com material
+    for tipo, o in opcoes.items():
+        itens = [(f"{tubos[i].nome if i < len(tubos) else 'chapa do chassi'} {i:02d}", "aco_galvanizado", c)
+                 for i, c in enumerate(chassi)]
+        itens += [(f"engate {i}", "aco_bruto", c) for i, c in enumerate(comprados_chassi)]
+        itens += [(f"suspensao soldada {i:02d}", "aco_galvanizado", c) for i, c in enumerate(o["soldado"])]
+        itens += [(f"suspensao comprada {i:02d}", "aco_bruto", c) for i, c in enumerate(o["comprados"])]
+        for i, r in enumerate(o["rodas"]):
+            lado = "dir" if i < len(o["rodas"]) // 2 else "esq"
+            nome, mat, tol = (("pneu", "borracha", 0.8), ("roda", "roda", 0.3), ("letras do pneu", "letras", 0.3))[i % 3]
+            itens.append((f"{nome} {lado}", mat, r, tol))
+        n_obj, n_tri = exportar_glb(itens, os.path.join(OUT, f"{NOME}_{tipo}.glb"))
+        print(f"Blender: {NOME}_{tipo}.glb ({n_obj} objetos, {n_tri / 1000:.0f} mil triângulos)")
 
     # ---- conferências
     bb = Part.makeCompound(chassi + susp + comprados + rodas).BoundBox
