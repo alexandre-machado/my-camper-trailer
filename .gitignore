@@ -1,0 +1,4 @@
+cad/_pylibs/
+cad/out/
+*.FCBak
+__pycache__/
